@@ -27,101 +27,64 @@
   <script>
     const sparqlEndpoint = "https://sparql.wikipathways.org/sparql";
     const sparqlQuery = `
-    SELECT ?interaction
-    (SAMPLE(?geneLabelSource) as ?geneLabelSource)
-    (SAMPLE(?geneLabelTarget) as ?geneLabelTarget)
-    (SAMPLE(?pathway) as ?pathway)
-    (SAMPLE(?geneLinkSource) as ?geneLinkSource)
-    (SAMPLE(?geneLinkTarget) as ?geneLinkTarget)
-    WHERE {
-      VALUES ?pathway { "WP3915" "WP1403" "WP1982"}
-      {
-    ?pathway1 dcterms:identifier "WP3915" .
-    ?interaction dcterms:isPartOf ?pathway1 .
-    ?interaction a wp:Interaction .
-    ?interaction wp:source ?source.
-    ?interaction wp:target ?target.
-    ?source a wp:GeneProduct.
-    ?source rdfs:label ?geneLabelSource.
-    ?source foaf:page ?geneLinkSource.
-    ?target a wp:GeneProduct.
-    ?target rdfs:label ?geneLabelTarget.
-    ?target foaf:page ?geneLinkTarget.
-    BIND("WP3915" as ?pathway)
-  }
-  UNION
-  {
-    ?pathway2 dcterms:identifier "WP1403" .
-    ?interaction dcterms:isPartOf ?pathway2 .
-    ?interaction a wp:Interaction.
-    ?interaction wp:source ?source.
-    ?interaction wp:target ?target.
-    ?source a wp:GeneProduct.
-    ?source rdfs:label ?geneLabelSource.
-    ?source foaf:page ?geneLinkSource.
-    ?target a wp:GeneProduct.
-    ?target rdfs:label ?geneLabelTarget.
-    ?target foaf:page ?geneLinkTarget.
-    BIND("WP1403" as ?pathway)
-  }
-  UNION
-  {
-    ?pathway3 dcterms:identifier "WP1982" .
-    ?interaction dcterms:isPartOf ?pathway3 .
-    ?interaction a wp:Interaction.
-    ?interaction wp:source ?source.
-    ?interaction wp:target ?target.
-    ?source a wp:GeneProduct.
-    ?source rdfs:label ?geneLabelSource.
-    ?source foaf:page ?geneLinkSource.
-    ?target a wp:GeneProduct.
-    ?target rdfs:label ?geneLabelTarget.
-    ?target foaf:page ?geneLinkTarget.
-    BIND("WP1982" as ?pathway)
-  }
-}
+SELECT ?interaction
+       (SAMPLE(?geneLabelSource) as ?geneLabelSource)
+       (SAMPLE(?geneLabelTarget) as ?geneLabelTarget)
+       (SAMPLE(?pathway) as ?pathway)
+       (SAMPLE(?geneLinkSource) as ?geneLinkSource)
+       (SAMPLE(?geneLinkTarget) as ?geneLinkTarget)
+       WHERE {
+        
+        VALUES ?pathwayId { "WP3915" "WP1403" "WP1982" }
+        ?pathwayNode dcterms:identifier ?pathwayId .
+        ?interaction dcterms:isPartOf ?pathwayNode .
+        ?interaction a wp:Interaction .
+        ?interaction wp:source ?source.
+        ?interaction wp:target ?target.
+        ?source a wp:GeneProduct.
+        ?source rdfs:label ?geneLabelSource.
+        ?source foaf:page ?geneLinkSource.
+        ?target a wp:GeneProduct.
+        ?target rdfs:label ?geneLabelTarget.
+        ?target foaf:page ?geneLinkTarget.
+        BIND(?pathwayId as ?pathway)
+    }
 GROUP BY ?interaction
+
     `;
-    fetch(`${sparqlEndpoint}?query=${encodeURIComponent(sparqlQuery)}`, { 
+fetch(`${sparqlEndpoint}?query=${encodeURIComponent(sparqlQuery)}`, { 
       headers: {
         'Accept': 'application/json'
       }
     }) 
-      .then(response => response.json()) 
-      .then(data => { 
-        console.log('SPARQL Results:', data);
+    .then(response => response.json()) 
+    .then(data => { 
         console.log('SPARQL Results:', data);
 
-        const nodes = [...new Set(data.results.bindings.flatMap(result => [result.geneLabelSource.value, result.geneLabelTarget.value]))]
-        .map((label, index) => ({ id: label, index, name: label, geneLinkSource: null, geneLinkTarget: null }));
-        console.log('Nodes:', nodes);
-        data.results.bindings.forEach(result => {
-          const sourceNode = nodes.find(node => node.id === result.geneLabelSource.value);
-          const targetNode = nodes.find(node => node.id === result.geneLabelTarget.value);
-          if (sourceNode && targetNode) {
-            console.log('Linking:', sourceNode.id, 'to', targetNode.id);
-            sourceNode.geneLinkSource = result.geneLinkSource.value;
-            targetNode.geneLinkTarget = result.geneLinkTarget.value;
-          }
-        });
+const nodes = [...new Set(data.results.bindings.flatMap(result => [result.geneLabelSource.value, result.geneLabelTarget.value]))]
+.map((label, index) => ({ id: label, index, name: label, geneLinkSource: null, geneLinkTarget: null }));
+console.log('Nodes:', nodes);
+data.results.bindings.forEach(result => {
+
+const sourceNode = nodes.find(node => node.id === result.geneLabelSource.value);
+
+const targetNode = nodes.find(node => node.id === result.geneLabelTarget.value);
+if (sourceNode && targetNode) {
+    console.log('Linking:', sourceNode.id, 'to', targetNode.id);
+    sourceNode.geneLinkSource = result.geneLinkSource.value;
+    targetNode.geneLinkTarget = result.geneLinkTarget.value;
+}
+});
 
 const links = data.results.bindings.map(result => ({
-  source: nodes.find(node => node.id === result.geneLabelSource.value),
-  target: nodes.find(node => node.id === result.geneLabelTarget.value),
-  value: 1,
-  pathway: result.pathway.value,
+    source: nodes.find(node => node.id === result.geneLabelSource.value),
+    target: nodes.find(node => node.id === result.geneLabelTarget.value),
+    value: 1,
+    pathway: result.pathway.value,
 }));
 
 const validLinks = links.filter(link => link.source !== undefined && link.target !== undefined);
-        console.log('Valid Links:', validLinks);
-        const invalidNodes = nodes.filter(node => !node.id || node.index === undefined);
-        const invalidLinks = links.filter(link => !link.source || !link.target);
-        if (invalidNodes.length > 0 || invalidLinks.length > 0) {
-          console.error('Error: Invalid or missing values in the data');
-          console.error('Invalid Nodes:', invalidNodes);
-          console.error('Invalid Links:', invalidLinks);
-          return;
-        }
+console.log('Valid Links:', validLinks);
 
 const width = window.innerWidth;
 const height = window.innerHeight;
